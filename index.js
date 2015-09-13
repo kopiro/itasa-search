@@ -27,12 +27,10 @@ function login(callback) {
 			task: 'login',
 			silent: true
 		}
-	}, function(err, response, body) {
-		callback();
-	});
+	}, callback);
 }
 
-function download(query, callback) {
+function search(query, callback) {
 	request('http://www.italiansubs.net/modules/mod_itasalivesearch/search.php?term=' + encodeURIComponent(query), function (err, response, body) {
 		body = JSON.parse(body);
 		if (body == null || body[0] == null) {
@@ -40,31 +38,39 @@ function download(query, callback) {
 			return;
 		}
 
-		var id = body[0].id;
-		var value = body[0].value;
+		process.stdout.write('Downloading ' + body[0].value + '\n');
+		callback(body[0].id, body[0].value);
+	});
+}
 
-		console.log('Downloading ' + body[0].value);
-
-		request('http://www.italiansubs.net/index.php?option=com_remository&Itemid=6&func=fileinfo&id=' + id, function (err, response, body) {
-			var download_link = body.match(/chk\=([^\&]+)/);
-			if (!download_link) {
+var tries = 0;
+function download(id, value, callback) {
+	request('http://www.italiansubs.net/index.php?option=com_remository&Itemid=6&func=fileinfo&id=' + id, function (err, response, body) {
+		var download_link = body.match(/chk\=([^\&]+)/);
+		if (!download_link) {
+			if (tries++ >= 1) {
 				process.stderr.write('Check validation error, maybe you\'re not logged in\n');
-				return;
+			} else {
+				process.stdout.write('Invalid login, logging in...\n');
+				login(function() {
+					download(id, value, callback);
+				});
 			}
 
-			download_link = download_link[1];
+			return;
+		}
 
-			request('http://www.italiansubs.net/index.php?option=com_remository&Itemid=6&func=download&id=' + id + '&chk=' + download_link + '&no_html=1')
-			.pipe(fs.createWriteStream(value + '.zip'))
-			.on('close', function() {
+		download_link = download_link[1];
 
-				fs.createReadStream(value + '.zip')
-				.pipe(require('unzip').Extract({ path: '.' }))
-				.on('finish', function() {
-					fs.unlinkSync(value + '.zip');
-					callback();
-				});
+		request('http://www.italiansubs.net/index.php?option=com_remository&Itemid=6&func=download&id=' + id + '&chk=' + download_link + '&no_html=1')
+		.pipe(fs.createWriteStream(value + '.zip'))
+		.on('close', function() {
 
+			fs.createReadStream(value + '.zip')
+			.pipe(require('unzip').Extract({ path: '.' }))
+			.on('finish', function() {
+				fs.unlinkSync(value + '.zip');
+				callback();
 			});
 
 		});
@@ -82,8 +88,4 @@ if (!query) {
 	return;
 }
 
-login(function() {
-	download(query, function() {
-		console.log('OK');
-	});
-});
+search(query, download);
