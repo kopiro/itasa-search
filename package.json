@@ -1,12 +1,13 @@
 {
-  "name": "ItasaSearch",
+  "name": "itasa-search",
   "version": "1.0.0",
   "description": "Search SRT on italiansubs.net",
   "main": "index.js",
   "bin": {
     "itasa": "./index.js"
   },
-  "author": "",
+  "author": "Flavio De Stefano <destefano.flavio@gmail.com>",
+  "repository": "https://github.com/kopiro/ItasaSearch",
   "license": "MIT",
   "dependencies": {
     "request": "^2.61.0",
