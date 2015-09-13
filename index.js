@@ -11,7 +11,7 @@ try {
 	}
 } catch (err) {
 	fs.writeFileSync(USER_HOME + '/.itasa.json', JSON.stringify({ username: '', password: '' }));
-	process.stderr.write('Set your personal data in ~/.itasa.json');
+	process.stderr.write('Set your personal data in "~/.itasa.json"\n');
 	return;
 }
 
@@ -34,10 +34,11 @@ function login(callback) {
 
 function download(query, callback) {
 	request('http://www.italiansubs.net/modules/mod_itasalivesearch/search.php?term=' + encodeURIComponent(query), function (err, response, body) {
-		if (err) throw err;
-
 		body = JSON.parse(body);
-		if (!body[0]) throw 'Nothing found';
+		if (body == null || body[0] == null) {
+			process.stderr.write('Nothing found\n');
+			return;
+		}
 
 		var id = body[0].id;
 		var value = body[0].value;
@@ -45,7 +46,13 @@ function download(query, callback) {
 		console.log('Downloading ' + body[0].value);
 
 		request('http://www.italiansubs.net/index.php?option=com_remository&Itemid=6&func=fileinfo&id=' + id, function (err, response, body) {
-			var download_link = body.match(/chk\=([^\&]+)/)[1];
+			var download_link = body.match(/chk\=([^\&]+)/);
+			if (!download_link) {
+				process.stderr.write('Check validation error, maybe you\'re not logged in\n');
+				return;
+			}
+
+			download_link = download_link[1];
 
 			request('http://www.italiansubs.net/index.php?option=com_remository&Itemid=6&func=download&id=' + id + '&chk=' + download_link + '&no_html=1')
 			.pipe(fs.createWriteStream(value + '.zip'))
@@ -71,7 +78,7 @@ function download(query, callback) {
 
 var query = process.argv.slice(2).join(' ');
 if (!query) {
-	process.stderr.write('No search query specified');
+	process.stderr.write('No search query specified\n');
 	return;
 }
 
