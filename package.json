@@ -1,6 +1,6 @@
 {
   "name": "itasa-search",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Search SRT on italiansubs.net",
   "main": "index.js",
   "bin": {
@@ -10,7 +10,11 @@
   "repository": "https://github.com/kopiro/ItasaSearch",
   "license": "MIT",
   "dependencies": {
+    "chalk": "^1.1.1",
+    "configstore": "^1.2.1",
+    "inquirer": "^0.10.0",
     "request": "^2.61.0",
-    "unzip": "^0.1.11"
+    "unzip": "^0.1.11",
+    "yargs": "^3.25.0"
   }
 }
