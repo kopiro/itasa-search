@@ -5,11 +5,17 @@ A simple NodeJS script to download subtiles from the best Italian site of subtit
 ### Installation
 
 ```
-npm -g install itasa
+npm -g install itasa-search
 ```
 
 ### Usage
 
 ```
 itasa Halt and catch fire 2x02
+```
+
+Use the `--login` flag to change login credentials.
+
+```
+itasa Walking Dead --login
 ```
