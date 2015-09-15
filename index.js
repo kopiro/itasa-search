@@ -26,6 +26,42 @@ var substep     =  function(message){
 	console.log(chalk.white.bold("  ☆ ") + message);
 };
 
+function download(result, callback) {
+	if (result == null) return;
+
+	step("Requesting download for : "+chalk.cyan(result.value));
+	substep("Getting session...");
+
+	request.get({
+		url : 'http://www.italiansubs.net/index.php?option=com_remository&Itemid=6&func=fileinfo&id=' + result.id
+	}, function (err, response, body) {
+		var download_link = body.match(/chk\=([^\&]+)/);
+
+		if (!download_link) {
+			cerr("Not logged in.");
+		} else {
+
+			download_link = download_link[1];
+
+			substep("Download...");
+			request.get({
+				url : 'http://www.italiansubs.net/index.php?option=com_remository&Itemid=6&func=download&id=' + result.id + '&chk=' + download_link + '&no_html=1'
+			})
+			.pipe(fs.createWriteStream(result.value + '.zip'))
+			.on('close', function() {
+				substep("Unzipping...");
+				fs.createReadStream(result.value + '.zip')
+				.pipe(require('unzip').Extract({ path: '.' }))
+				.on('finish', function() {
+					fs.unlinkSync(result.value + '.zip');
+					substep("Done.");
+					if (_.isFunction(callback)) callback();
+				});
+			});
+		}
+	});
+};
+
 function checkLoginCredentials(callback) {
 	if (config.get('username')){
 		if (_.isFunction(callback)) callback();
@@ -65,77 +101,30 @@ function search(query, callback, response) {
 				"return": "aW5kZXgucGhw",
 				"silent":     true
 			}
-		},function(err, response, body) {
+		}, function(err, response, body) {
 			step("Searching for : "+chalk.green(query));
 			request.get({
 				url: 'http://www.italiansubs.net/modules/mod_itasalivesearch/search.php?term=' + encodeURIComponent(query)
 			}, function (err, response, body) {
-
 				body = JSON.parse(body);
+				if (body == null || body.length === 0) { cerr('Nothing found\n'); return;	}
 
-				if (body == null || body.length === 0) {
-					cerr('Nothing found\n');
-					return;
-				}
-
-				var choices = body.reduce(function(c,e){ c.push(e); return c; },[]);
-				choices.push(new inquirer.Separator());
-
-				var download = function(result) {
-					step("Requesting download for : "+chalk.cyan(result.value));
-					substep("Getting session...");
-
-					request.get({
-						url : 'http://www.italiansubs.net/index.php?option=com_remository&Itemid=6&func=fileinfo&id=' + result.id
-					}, function (err, response, body) {
-						var download_link = body.match(/chk\=([^\&]+)/);
-
-						if (!download_link) {
-							cerr("Not logged in.");
-						} else {
-
-							download_link = download_link[1];
-
-							substep("Download...");
-							request.get({
-								url : 'http://www.italiansubs.net/index.php?option=com_remository&Itemid=6&func=download&id=' + result.id + '&chk=' + download_link + '&no_html=1'
-							})
-							.pipe(fs.createWriteStream(result.value + '.zip'))
-							.on('close', function() {
-								substep("Unzipping...");
-								fs.createReadStream(result.value + '.zip')
-								.pipe(require('unzip').Extract({ path: '.' }))
-								.on('finish', function() {
-									fs.unlinkSync(result.value + '.zip');
-									substep("Done.");
-									if (_.isFunction(callback)) callback();
-								});
-							});
-						}
-					});
-				};
+				var choices = _.pluck(body, 'value').concat([(new inquirer.Separator())]);
 
 				if (argv.lucky) {
-					download(body[0]);
+					download(body[0], callback);
 				} else {
-					inquirer.prompt([
-					{
+					inquirer.prompt([{
 						type: "list",
 						name: "sub",
 						message: "Choose subtitles: ",
 						choices:  choices
-					}
-					], function( answers ) {
-						var result = '';
-						body.forEach(function(v,k){
-							if (v.value == answers.sub) result = v;
-						});
-
-						download(result);
+					}], function( answers ) {
+						download(_.find(body, function(v) { return v.value == answers.sub; }), callback);
 					});
 				}
 			});
-});
+		});
 });
 }
 
