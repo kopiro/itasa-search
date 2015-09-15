@@ -11,11 +11,17 @@ npm -g install itasa-search
 ### Usage
 
 ```
-itasa Halt and catch fire 2x02
+itasa Halt and Catch Fire 2x02
 ```
 
 Use the `--login` flag to change login credentials.
 
 ```
-itasa Walking Dead --login
+itasa Walking Dead 1x06--login
+```
+
+Use the `--lucky` flag to download the first one of the list.
+
+```
+itasa Breaking Bad 5x13 --lucky
 ```

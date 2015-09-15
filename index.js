@@ -4,6 +4,7 @@ var Configstore = require('configstore');
 var manifest    = require('./package.json');
 var config      = new Configstore(manifest.name, { username: '', password: '' });
 var argv 				= require('yargs').argv;
+var _ = require('underscore');
 
 var request     = require('request').defaults({
 	jar: require('request').jar()
@@ -15,7 +16,7 @@ var chalk 			= require('chalk');
 
 var cerr        =  function(message){
 	console.error(chalk.red.bold("⭑ ") + chalk.white.bgRed(message));
-};;
+};
 
 var step        =  function(message){
 	console.log(chalk.white.bold("⭑ ") + message);
@@ -27,7 +28,7 @@ var substep     =  function(message){
 
 function checkLoginCredentials(callback) {
 	if (config.get('username')){
-		callback && callback();
+		if (_.isFunction(callback)) callback();
 	} else {
 		inquirer.prompt([
 		{
@@ -43,7 +44,7 @@ function checkLoginCredentials(callback) {
 		], function( answers ) {
 			config.set('username',answers.username);
 			config.set('password',answers.password);
-			callback && callback();
+			if (_.isFunction(callback)) callback();
 		});
 	}
 }
@@ -72,7 +73,7 @@ function search(query, callback, response) {
 
 				body = JSON.parse(body);
 
-				if (body == null || body[0] == null) {
+				if (body == null || body.length === 0) {
 					cerr('Nothing found\n');
 					return;
 				}
@@ -80,19 +81,7 @@ function search(query, callback, response) {
 				var choices = body.reduce(function(c,e){ c.push(e); return c; },[]);
 				choices.push(new inquirer.Separator());
 
-				inquirer.prompt([
-				{
-					type: "list",
-					name: "sub",
-					message: "Choose subtitles: ",
-					choices:  choices
-				}
-				], function( answers ) {
-					var result = '';
-					body.forEach(function(v,k){
-						if (v.value == answers.sub) result = v;
-					});
-
+				var download = function(result) {
 					step("Requesting download for : "+chalk.cyan(result.value));
 					substep("Getting session...");
 
@@ -119,15 +108,35 @@ function search(query, callback, response) {
 								.on('finish', function() {
 									fs.unlinkSync(result.value + '.zip');
 									substep("Done.");
-									callback && callback();
+									if (_.isFunction(callback)) callback();
 								});
 							});
 						}
 					});
-				});
+				};
+
+				if (argv.lucky) {
+					download(body[0]);
+				} else {
+					inquirer.prompt([
+					{
+						type: "list",
+						name: "sub",
+						message: "Choose subtitles: ",
+						choices:  choices
+					}
+					], function( answers ) {
+						var result = '';
+						body.forEach(function(v,k){
+							if (v.value == answers.sub) result = v;
+						});
+
+						download(result);
+					});
+				}
 			});
-		});
-	});
+});
+});
 }
 
 ///////////
