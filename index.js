@@ -86,62 +86,64 @@ function checkLoginCredentials(callback) {
 }
 
 function search(query, callback, response) {
-	checkLoginCredentials(function(){
-		step("Login as ["+chalk.yellow(config.get('username'))+"]");
-		request.post({
-			url: 'http://www.italiansubs.net/index.php',
-			form: {
-				"username":   config.get('username'),
-				"passwd":     config.get('password'),
-				"remember":   'yes',
-				"Submit":     'Login',
-				"option":     'com_user',
-				"task":       'login',
-				"39fadbc90b8639fdf04c59d7b605718e": 1,
-				"return": "aW5kZXgucGhw",
-				"silent":     true
+	request.post({
+		url: 'http://www.italiansubs.net/index.php',
+		form: {
+			"username":   config.get('username'),
+			"passwd":     config.get('password'),
+			"remember":   'yes',
+			"Submit":     'Login',
+			"option":     'com_user',
+			"task":       'login',
+			"39fadbc90b8639fdf04c59d7b605718e": 1,
+			"return": "aW5kZXgucGhw",
+			"silent":     true
+		}
+	}, function(err, response, body) {
+		step("Searching for : "+chalk.green(query));
+		request.get({
+			url: 'http://www.italiansubs.net/modules/mod_itasalivesearch/search.php?term=' + encodeURIComponent(query)
+		}, function (err, response, body) {
+			body = JSON.parse(body);
+			if (body == null || body.length === 0) { cerr('Nothing found\n'); return;	}
+
+			var choices = _.pluck(body, 'value').concat([(new inquirer.Separator())]);
+
+			if (argv.lucky) {
+				download(body[0], callback);
+			} else {
+				inquirer.prompt([{
+					type: "list",
+					name: "sub",
+					message: "Choose subtitles: ",
+					choices:  choices
+				}], function( answers ) {
+					download(_.find(body, function(v) { return v.value == answers.sub; }), callback);
+				});
 			}
-		}, function(err, response, body) {
-			step("Searching for : "+chalk.green(query));
-			request.get({
-				url: 'http://www.italiansubs.net/modules/mod_itasalivesearch/search.php?term=' + encodeURIComponent(query)
-			}, function (err, response, body) {
-				body = JSON.parse(body);
-				if (body == null || body.length === 0) { cerr('Nothing found\n'); return;	}
-
-				var choices = _.pluck(body, 'value').concat([(new inquirer.Separator())]);
-
-				if (argv.lucky) {
-					download(body[0], callback);
-				} else {
-					inquirer.prompt([{
-						type: "list",
-						name: "sub",
-						message: "Choose subtitles: ",
-						choices:  choices
-					}], function( answers ) {
-						download(_.find(body, function(v) { return v.value == answers.sub; }), callback);
-					});
-				}
-			});
 		});
-});
+	});
 }
 
 ///////////
 // Start //
 ///////////
 
-var query = argv._.join(" ");
-if (!query) {
-	cerr('No search query specified\n');
-	return;
-}
-
-if (argv.login){
+if (argv.login) {
 	step("Forcing login credential re-input.");
 	config.del('username');
 	config.del('password');
 }
 
-search(query);
+checkLoginCredentials(function(){
+	step("Login as ["+chalk.yellow(config.get('username'))+"]");
+
+	var query = argv._.join(" ");
+	if (!query) {
+		cerr('No search query specified\n');
+		return;
+	}
+
+	search(query);
+
+});
