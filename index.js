@@ -1,30 +1,51 @@
 #!/usr/bin/env node
 
 var Configstore = require('configstore');
-var manifest    = require('./package.json');
-var config      = new Configstore(manifest.name, { username: '', password: '' });
-var argv 				= require('yargs').argv;
+var manifest  = require('./package.json');
+var config  = new Configstore(manifest.name, { username: '', password: '' });
+var argv = require('yargs').argv;
 var _ = require('underscore');
 
-var request     = require('request').defaults({
+var request = require('request').defaults({
 	jar: require('request').jar()
 });
 
-var fs          = require('fs');
-var inquirer 		= require("inquirer");
-var chalk 			= require('chalk');
+var fs = require('fs');
+var inquirer = require("inquirer");
+var chalk = require('chalk');
+var exec = require('child_process').execSync;
 
-var cerr        =  function(message){
+function cerr(message){
 	console.error(chalk.red.bold("⭑ ") + chalk.white.bgRed(message));
-};
+}
 
-var step        =  function(message){
+function cerr(message){
 	console.log(chalk.white.bold("⭑ ") + message);
-};
+}
 
-var substep     =  function(message){
-	console.log(chalk.white.bold("  ☆ ") + message);
-};
+function substep(message){
+	console.log(chalk.white.bold("⭑ ") + message);
+}
+
+function step(message){
+	console.log(chalk.white.bold("☆ ") + message);
+}
+
+function associate(result, callback) {
+	if (result == null) return;
+
+	if (argv.file) {
+		var srtFileFrom = exec('find srt -name "*.srt"').toString();
+		if (srtFileFrom) {
+			var srtFileTo = argv.file.replace(/\.\w+$/, '.srt');
+			substep("Renaming as " + srtFileFrom);
+			fs.moveSync(srtFileFrom, srtFileTo);
+		}
+	}
+
+	if (_.isFunction(callback)) callback();
+}
+
 
 function download(result, callback) {
 	if (result == null) return;
@@ -38,29 +59,32 @@ function download(result, callback) {
 		var download_link = body.match(/chk\=([^\&]+)/);
 
 		if (!download_link) {
-			cerr("Not logged in.");
-		} else {
-
-			download_link = download_link[1];
-
-			substep("Download...");
-			request.get({
-				url : 'http://www.italiansubs.net/index.php?option=com_remository&Itemid=6&func=download&id=' + result.id + '&chk=' + download_link + '&no_html=1'
-			})
-			.pipe(fs.createWriteStream(result.value + '.zip'))
-			.on('close', function() {
-				substep("Unzipping...");
-				fs.createReadStream(result.value + '.zip')
-				.pipe(require('unzip').Extract({ path: '.' }))
-				.on('finish', function() {
-					fs.unlinkSync(result.value + '.zip');
-					substep("Done.");
-					if (_.isFunction(callback)) callback();
-				});
-			});
+			cerr("Not logged in or parsing error.");
+			return;
 		}
+
+		download_link = download_link[1];
+
+		substep("Download...");
+		request.get({
+			url : 'http://www.italiansubs.net/index.php?option=com_remository&Itemid=6&func=download&id=' + result.id + '&chk=' + download_link + '&no_html=1'
+		})
+		.pipe(fs.createWriteStream(result.value + '.zip'))
+		.on('close', function() {
+			substep("Unzipping...");
+
+			fs.createReadStream(result.value + '.zip')
+			.pipe(require('unzip').Extract({ path: 'srt' }))
+			.on('finish', function() {
+				fs.unlinkSync(result.value + '.zip');
+
+				associate(result, callback);
+
+			});
+
+		});
 	});
-};
+}
 
 function checkLoginCredentials(callback) {
 	if (config.get('username')){
