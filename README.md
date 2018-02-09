@@ -25,3 +25,9 @@ Use the `--lucky` flag to download the first one of the list.
 ```
 itasa Breaking Bad 5x13 --lucky
 ```
+
+Use the `--file` flag to download subtitles according to the filename. You can combile `--file` with `--lucky` to get subtitle with the quality provided in the filename. If the filename point to an existing file subtitle(s) will be also copied  in the directory of the file and renamed as filename.srt
+
+```
+itasa /mnt/tv shows/bluray-rip/game.of.thrones.s04e06.720p.hdtv.x264.mkv --file
+```
